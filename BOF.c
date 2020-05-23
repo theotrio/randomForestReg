@@ -4,7 +4,7 @@
  
 /**
  * This is a function to select randomly features for each tree of the Random Forest.
- * This is a functions that takes as an input the numver of features (cols)
+ * This is a functions that takes as an input the number of features (cols)
  * and returns an array with randomly selected numbers from 0 to cols. The 
  * returned array has size Nfeatures.
 **/
