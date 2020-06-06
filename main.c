@@ -2,7 +2,146 @@
 #include <string.h>
 #include <stdlib.h>
 #define NELEMS(x)  (sizeof(x) / sizeof((x)[0]))
-#include <dirent.h> 
+#include <dirent.h>
+#include <time.h>
+#include <math.h>
+
+void get_best_descriptor(int *size_matrix, float **parent,float *target)
+{
+    // inputs size_matrix[4] [num_row,num_col,best_feature,best_threshold]
+    //best_feature->{0,col_num}
+    //best_threshold->{0,total_num_row}
+
+    int parent_i = size_matrix[0];
+    int parent_j = size_matrix[1];
+
+    int k=0; //check for all feature colms
+    double min_mse=100000000.0; //a very big mse to start with
+    double average_descripor=0;
+    double se=0;
+    int best_descriptor;
+
+    for (int j =0;j<parent_j;j++)
+    {
+        average_descripor=0;
+        for (int i = 0; i < parent_i; ++i)
+        {
+            /* sum all features */
+            average_descripor=average_descripor+parent[i][j];
+        }
+        //get avrg
+        average_descripor=average_descripor/parent_i;
+        for (int i = 0; i < parent_i; ++i)
+        {
+            /* sum  */
+            se=se+pow((average_descripor-target[i]),2);
+        }
+        se=se/parent_i;
+        
+        printf("%f\n",se );
+        if (se<min_mse)
+        {
+            min_mse=se;
+            best_descriptor=j;
+            printf("%d\n",j );
+            se=0;       /* code */
+        }
+        else
+        {
+            se=0;
+        }
+
+    }
+    size_matrix[2]=best_descriptor;
+}
+
+
+
+
+int * createBOF(int cols, int Nfeatures,int target)
+{
+    srand(time(NULL));   // Initialization, should only be called once.
+    static int bof[210];
+    int r = 0;
+
+
+    int array1[cols];
+
+    for(int i=0; i<cols; i++)
+    {
+        array1[i] = i; 
+    }
+
+    int i=0;
+
+    while(i<Nfeatures)
+    {
+        r = rand() % (cols-i);
+        if (r!=target)
+        {
+            /* code */
+            bof[i] = array1[r];
+            array1[r] = array1[cols-1-i];
+            i++;
+        }
+
+    }
+
+    return bof;
+
+}
+
+
+/**
+ * This functions fills a submatrix that is in essence the root of a tree of the random forest. 
+ * As input it takes the whole data set which has "bigCols" features and then it selects randomly 
+ * "Nfeatures" features to fill the smallMatr.
+**/
+void fillBof(int rows, int bigCols, int Nfeatures,float **bigMatr, float **smallMatr,int target)
+{
+    int *bof = createBOF(bigCols,Nfeatures,target);
+
+    for(int i=0; i<rows; i++)
+    {
+        for(int j=0; j<Nfeatures; j++)
+        {
+            smallMatr[i][j] = bigMatr[i][bof[j]];
+        }
+    } 
+}
+
+void get_target(int length,int col_name,float **data,float *y)
+{
+    for(int i=0; i<length; i++)
+    {
+        y[i]=data[i][col_name];
+    }
+}
+
+
+void printMatr(int rows, int cols, float **Matr)
+{
+    for(int i=0; i<rows; i++)
+    {
+        for(int j=0; j<cols; j++)
+        {
+            printf("%f  ", Matr[i][j]);
+        }
+        printf("\n");
+    }
+    printf("----------------------------------\n");
+}
+
+void printAr1(float *myArr, int length)
+{
+    for(int i=0; i<length; i++)
+    {
+        printf("%f\n", myArr[i]);
+    }
+}
+
+
+
 
 void getrow(char* line,char feature_names[][50])
 {
@@ -140,12 +279,15 @@ int main(void) {
 
 
     //################### main data procedure#################
+
     char line[col_num][50];       //initialize line, it should have same length as feature names [col_name][50], 50 is just a string size number
     char col_names[col_num][50];  //initialize feature_name list
     float **data = malloc(TOTAL_NUM_ROW * sizeof(float *)); //initialize data 2d array
-    for (int i=0; i <= TOTAL_NUM_ROW; i++)
-        data[i] = malloc((col_num-1)*sizeof(float));
 
+    for (int i=0; i < TOTAL_NUM_ROW; i++)
+        data[i] = malloc((col_num)*sizeof(float));
+
+    float *target_y=malloc(TOTAL_NUM_ROW*sizeof(float));
 
 
 
@@ -184,15 +326,91 @@ int main(void) {
     }
     fclose(fp);
 //###########################PRINTS###############################################################
-    for (int i = 0; i < col_num; ++i)
+    // for (int i = 0; i < col_num; ++i)
+    // {
+    //     printf("%s\n",col_names[i] );
+    // }
+    // for (int i = 0; i < col_num; ++i)
+    // {
+    //     printf("%f\n",data[TOTAL_NUM_ROW-1][i] );
+    // }
+    // float target=malloc((TOTAL_NUM_ROW)*sizeof(float));
+
+    int tree_size=round(sqrt(col_num));
+    //use MPI here
+    int num_of_trees=10;
+
+    float ***forest = malloc(num_of_trees * sizeof(float **));
+    for (int j = 0; j < num_of_trees; ++j)
+    {
+        forest[j]=malloc(TOTAL_NUM_ROW * sizeof(float *));
+        for (int i=0; i <= TOTAL_NUM_ROW; i++)
+            forest[j][i] = malloc((tree_size)*sizeof(float));
+    }
+
+    // float **tree = malloc(TOTAL_NUM_ROW * sizeof(float *)); //initialize data 2d array
+    // for (int i=0; i <= TOTAL_NUM_ROW; i++)
+    //     tree[i] = malloc((tree_size)*sizeof(float));
+
+    // for (int i = 0; i < num_of_trees; ++i)
+    // {
+    //     /* code */
+    //     fillBof(TOTAL_NUM_ROW,col_num,tree_size,data,forest[i],193);
+    // }
+
+    // for (int i = 0; i < num_of_trees; ++i)
+    // {
+    //     printMatr(TOTAL_NUM_ROW, col_num, forest[i]);
+    // }
+    
+    // printMatr(TOTAL_NUM_ROW, col_num, forest[9]);
+
+    get_target( TOTAL_NUM_ROW,193,data,target_y);
+
+    // printAr1(target_y,TOTAL_NUM_ROW);
+    int utilities_matrix[4]={TOTAL_NUM_ROW,col_num,0,0};
+
+    get_best_descriptor(utilities_matrix, data,target_y);
+
+    for (int i = 0; i < 4; ++i)
     {
         /* code */
-        printf("%s\n",col_names[i] );
+        printf("%d\n", utilities_matrix[i]);
     }
-    for (int i = 0; i < TOTAL_NUM_ROW; ++i)
-    {
-        /* code */
-        printf("%f\n",data[i][0] );
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     return 0;
 }
