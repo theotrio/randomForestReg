@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,9 +5,101 @@
 #include <dirent.h>
 #include <time.h>
 #include <math.h>
+#define FILE_NUMBER 2 //default 52
+
 
 
 //################# FUNCTIONS OF THE ALGORITHM ##############################
+
+
+
+void split(int *size_matrix,float **child1, float **child2, float **parent)
+{
+    int parent_i = size_matrix[0];//4
+    int parent_j = size_matrix[1];//6
+
+    int child1_i = size_matrix[3]+1;//3
+    int child1_j = size_matrix[1];//6
+
+    int child2_i = size_matrix[0]-size_matrix[3]-1;//1
+    int child2_j = size_matrix[1];//6
+
+    int c1i=0;
+    int c1j=0;
+    int c2i=0;
+    int c2j=0;
+
+
+
+    for (int j=0;j<parent_j;j++)
+    {
+        c1i=0;
+        c2i=0;
+        for (int i=0;i<parent_i;i++)
+        {
+            if (i<child1_i)//true for {0,1,2}
+            {
+                child1[c1i][c1j]=parent[i][j];
+                c1i++;
+            }
+            else
+            {
+                child2[c2i][c2j]=parent[i][j];
+                c2i++;
+            }
+        }
+        c1j++;
+        c2j++;
+    }
+
+}
+
+void get_best_threshold(int *size_matrix, float **parent,float *target)
+{
+    /*
+    updates utilities_matrix last position, which is the row index of the best threshold where the split must happen.
+    the two submatrices are [0..,k] , [k+1,..,row_number] 
+    */
+
+    int parent_i = size_matrix[0];
+    int parent_j = size_matrix[1];
+    int best_descriptor= size_matrix[2];
+    int k=0; //slides across feature col
+    int count=0;//slides until k to compute avrg
+    double avg=0;
+    double se=0;
+    double min_mse=10000;
+
+
+    for (k=0;k<parent_i-1;k++)
+    {
+        avg=0;
+        //calculate mean squere error
+        for (count=0;count<k+1;count++)
+        {
+            avg=avg+parent[count][best_descriptor];
+        }
+        avg=avg/(k+1);
+
+        for (int i = 0; i < parent_i; ++i)
+        {
+            se=se+pow((avg-target[i]),2);
+        }
+
+        if (se<min_mse)
+        {
+            min_mse=se;
+            size_matrix[3]=k;
+            se=0;
+        }
+        else
+        {
+            se=0;
+        }
+
+    }
+
+}
 
 /**
  * This function normalises the elements of a matirx column-wise 
@@ -22,7 +113,7 @@ void normalise(float **matrix, int rows, int cols)
         {
             mean += matrix[i][j];
         }
-        float mean = mean/rows;
+        mean = mean/rows;
 
         float sdev=0;
         for(int i=0; i<rows; i++)
@@ -67,6 +158,7 @@ void get_best_descriptor(int *size_matrix, float **parent,float *target)
 
     for (int j =0;j<parent_j;j++)
     {
+        //calculate mean squere error
         average_descripor=0;
         for (int i = 0; i < parent_i; ++i)
         {
@@ -95,7 +187,7 @@ void get_best_descriptor(int *size_matrix, float **parent,float *target)
         }
 
     }
-    printf("%f\n", min_mse );
+    // printf("%f\n", min_mse );
     size_matrix[2]=best_descriptor;
 }
 
@@ -111,10 +203,9 @@ void get_best_descriptor(int *size_matrix, float **parent,float *target)
  * Returns an array with randomly selected numbers from 0 to cols. The 
  * returned array has size Nfeatures.
 **/
-int * createBOF(int cols, int Nfeatures,int target, int seed)
+void createBOF(int cols, int Nfeatures,int target, int seed, int *bof)
 {
     srand(time(NULL));   // Initialization, should only be called once.
-    static int bof[210];
     int r = 0;
 
 
@@ -133,8 +224,7 @@ int * createBOF(int cols, int Nfeatures,int target, int seed)
 
     while(i<Nfeatures)
     {
-        r = ((rand()*seed)%3 + (rand()*seed)%13 + (rand()*seed)%19 + (rand()*seed)%71 + (rand()*seed)%203 )% (cols-i);
-        //printf("%d  ", r);
+        r = ((rand()%11)*seed + (rand()%13)*seed + (rand()%109)*seed + (rand()%71)*seed + (rand()%203)*seed ) % (cols-i);
         if (r!=target)
         {
             bof[i] = array1[r];
@@ -144,7 +234,6 @@ int * createBOF(int cols, int Nfeatures,int target, int seed)
 
     }
     //printf("\n-------------------------------------------------------------------------------------------\n");
-    return bof;
 
 }
 
@@ -156,13 +245,14 @@ int * createBOF(int cols, int Nfeatures,int target, int seed)
 **/
 void fillBof(int rows, int bigCols, int Nfeatures,float **bigMatr, float **smallMatr,int target,int seed)
 {
-    int *bof = createBOF(bigCols,Nfeatures,target,seed);
+    int bofAr[Nfeatures];
+    createBOF(bigCols,Nfeatures,target,seed,bofAr);
 
     for(int i=0; i<rows; i++)
     {
         for(int j=0; j<Nfeatures; j++)
         {
-            smallMatr[i][j] = bigMatr[i][bof[j]];
+            smallMatr[i][j] = bigMatr[i][bofAr[j]];
         }
     } 
 }
@@ -286,7 +376,7 @@ int main(void)
 {
     //############################### READING THE DATA FROM CSV FILES ###########################################
 
-    char path[100]="C:\\Users\\theot\\eclipse-workspaceC\\VSC\\Hartree\\Hartree_Data\\";// this path should be the folder of data
+    char path[100]="/home/konsa/Downloads/hartree_data/sample/";// this path should be the folder of data
     char temp_path[100];// this is just a helper path
     strcpy(temp_path,path);
 
@@ -317,7 +407,8 @@ int main(void)
     // FILE *fp = fopen(de->d_name, "r");
     closedir(dr);
 
-    FILE *fp; // initialise fp
+    FILE *fp = fopen(temp_path, "r"); // FOR LINUX
+    // FILE *fp; //for WINDOWS 
     char buf[3072]; // this is a buffer that contains the line from fgets
     int k=0;
     int col_num=0;
@@ -327,15 +418,13 @@ int main(void)
 
     //##############the first opening of all the csvs is to get the sizes of columns and rows############################
 
-    for (int i = 0; i < 1; ++i)//52 are the csvs couldn't make it more generic
+
+    for (int i = 0; i < FILE_NUMBER; ++i)//52 are the csvs couldn't make it more generic
     {
         strcat(temp_path,csvs[i]); //copies the file to path, in order to read csv later
-        fp = fopen(temp_path, "r");
+        fp = freopen(temp_path, "r",fp);
+        // fp=fopen(temp_path,"r");
         //printf("%s\n",temp_path );
-        /**if(fp==NULL)
-        {
-            perror("Did not read");
-        }**/
         strcpy(temp_path,path);
         while (fgets(buf, 3072, fp))
         {
@@ -350,7 +439,8 @@ int main(void)
 
         TOTAL_NUM_ROW=TOTAL_NUM_ROW+row_num;
         row_num=0;
-        fclose(fp);
+        //fclose(fp);
+        
     }
     TOTAL_NUM_ROW=TOTAL_NUM_ROW-1;
     printf("Total number of rows is:%d\n",TOTAL_NUM_ROW );
@@ -360,9 +450,9 @@ int main(void)
     //################### main data procedure#################
 
     char line[col_num][50];       //initialize line, it should have same length as feature names [col_name][50], 50 is just a string size number
-    char col_names[col_num][50];  //initialize feature_name list
+    char col_names[col_num][50];  
+    //initialize feature_name list
     float **data = malloc(TOTAL_NUM_ROW * sizeof(float *)); //initialize data 2d array
-
     for (int i=0; i < TOTAL_NUM_ROW; i++)
         data[i] = malloc((col_num)*sizeof(float));
 
@@ -370,7 +460,7 @@ int main(void)
 
 
     // 52 is the number of csvs in the dir
-    for (int i = 0; i < 52; ++i)
+    for (int i = 0; i < FILE_NUMBER; ++i)
     {
         /* itearate through csvs */
         strcat(temp_path,csvs[i]); //add file to path
@@ -414,12 +504,35 @@ int main(void)
     int num_of_trees=10;  //The number of trees
 
     // Memory allocation for the forest. Each tree is a 2D matrix so the forest is a 3D matrix.
+    /*
     float ***forest = malloc(num_of_trees * sizeof(float **));
     for (int j = 0; j < num_of_trees; ++j)
     {
         forest[j]=malloc(TOTAL_NUM_ROW * sizeof(float *));
         for (int i=0; i <= TOTAL_NUM_ROW; i++)
             forest[j][i] = malloc((tree_size)*sizeof(float));
+    }
+    */
+    int depth = 3;
+    int no_Of_nodes = pow(2,depth)-1;
+    printf("The number of nodes is %d\n",no_Of_nodes);
+
+    /**
+     * Memory allocation for the forest.
+     * Each node is a 2D matrix thus each tree is a 3D matrix and the forest is a 4D matrix.
+     **/
+    float ****forest = malloc(num_of_trees * sizeof(float ***));
+    for (int f = 0; f < num_of_trees; ++f)
+    {
+        forest[f]=malloc(no_Of_nodes * sizeof(float **));
+        for (int n=0; n < no_Of_nodes; n++)
+        {
+            forest[f][n] = malloc(TOTAL_NUM_ROW * sizeof(float *));
+            for(int i=0; i<TOTAL_NUM_ROW; i++)
+            {
+                forest[f][n][i] = malloc((tree_size)*sizeof(float));
+            }
+        }
     }
 
     //Normalise the data table
@@ -428,19 +541,15 @@ int main(void)
     //Copy the target column from data
     get_target( TOTAL_NUM_ROW,target_feature,data,target_y);
 
+    //fill the ROOOOOTTT of the tree, it will be the middle index of the node array
+    int root=(no_Of_nodes/2);
     for (int i = 0; i < num_of_trees; ++i)
-    {
-        fillBof(TOTAL_NUM_ROW,col_num,tree_size,data,forest[i],target_feature,i+3);
+    {   
+        fillBof(TOTAL_NUM_ROW,col_num,tree_size,data,forest[i][root],target_feature,i+3);
     }
 
-    printMatrF(TOTAL_NUM_ROW,tree_size,forest[0]);
-    printMatrF(TOTAL_NUM_ROW,tree_size,forest[2]);
 
-    /**
-     * For the best_descriptor function a size_matrix[4] should be defined to record the best 
-     * descriptor and the threhold. We have such a vector for each tree.
-     * --Theo says that we may need to reconsider that...
-    **/
+
     int **utilities_matrix = malloc(num_of_trees * sizeof(int *));
     for (int i=0; i < num_of_trees; i++)
     {
@@ -455,14 +564,101 @@ int main(void)
         utilities_matrix[i][2]=0;
         utilities_matrix[i][3]=0;
     }
-
-    //Calculate the best descriptor for each root.
-    for(int i=0; i<num_of_trees; i++)
+    // feat_thres is a 3-d matrix [num_of_tress][num_of_nodes][best_feature,float threshold]
+    float ***feat_thres = malloc(num_of_trees * sizeof(float **));
+    for (int j = 0; j < num_of_trees; ++j)
     {
-        get_best_descriptor(utilities_matrix[i], forest[i],target_y);
+        feat_thres[j]=malloc(no_Of_nodes * sizeof(float *));
+        for (int i=0; i < no_Of_nodes; i++)
+            feat_thres[j][i] = malloc((2)*sizeof(float));
+    }
+    int next_child=0;
+    int next_left_child=0;
+    int next_right_child=0;
+    int number_non_zero=0;
+    int left_flag=1;
+    int right_flag=1;
+
+    for (int fi = 0; fi < num_of_trees; ++fi)
+    {
+        /* forest iteration */
+        for (int ki = 0; ki < depth; ++ki)
+        {
+            next_child=root/pow(2,ki);
+
+            for (int kj = 0; kj < pow(2,ki); ++kj)
+            {
+                get_best_descriptor(utilities_matrix[fi], forest[fi][next_child],target_y);
+                get_best_threshold(utilities_matrix[fi], forest[fi][next_child],target_y);
+                feat_thres[fi][next_child][0]=utilities_matrix[fi][2];
+                feat_thres[fi][next_child][1]=utilities_matrix[fi][3];
+
+                if (ki!=0)
+                {
+                    next_child=next_child+pow(2,depth-ki);
+                }
+                if(ki<depth-1)
+                {
+                    next_left_child=next_child-pow(2,depth-ki-2);//next level left
+
+                    next_right_child=next_left_child+pow(2,ki-1); //next level right
+
+                    printf("new\n");
+                    
+                    split(utilities_matrix[fi],forest[fi][next_left_child], forest[fi][next_right_child], forest[fi][next_child]);
+                    // count the number of non-zero elements
+                    // if the count <2 then don't do the split
+                    // create two flags for left and right, if 1 do not do the split
+                    for (int nel = 0; nel < NELEMS(forest[fi][next_left_child][0]); ++nel)
+                    {
+                        /* code */
+                        if (forest[fi][next_left_child][0][nel]!=0)
+                        {
+                            /* code */
+                            number_non_zero++;
+                        }
+                    }
+                    if(number_non_zero<2)
+                    {
+                        left_flag=1;
+                    }
+                    number_non_zero=0;
+
+                    for (int nel = 0; nel < NELEMS(forest[fi][next_right_child][0]); ++nel)
+                    {
+                        /* code */
+                        if (forest[fi][next_right_child][0][nel]!=0)
+                        {
+                            /* code */
+                            number_non_zero++;
+                        }
+                    }
+                    if(number_non_zero<2)
+                    {
+                        right_flag=1;
+                    }
+                    number_non_zero=0;
+                }
+
+            }
+        }
     }
 
-    printMatr(num_of_trees,4,utilities_matrix);
+
+    // printMatrF(TOTAL_NUM_ROW,tree_size,forest[0][root]);
+
+    // printMatrF(TOTAL_NUM_ROW,tree_size,forest[2]);
+
+    /**
+     * For the best_descriptor function a size_matrix[4] should be defined to record the best 
+     * descriptor and the threhold. We have such a vector for each tree.
+     * --Theo says that we may need to reconsider that...
+    **/
+    // MAIN PROGRAM LOOP
+
+
+    //Calculate the best descriptor for each root.
+
 
     
 
