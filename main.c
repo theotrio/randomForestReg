@@ -1,3 +1,34 @@
+Skip to content
+Search or jump to…
+
+Pull requests
+Issues
+Marketplace
+Explore
+ 
+@theotrio 
+Learn Git and GitHub without any code!
+Using the Hello World guide, you’ll start a branch, write comments, and open a pull request.
+
+
+kostas1515
+/
+randomForestReg
+1
+00
+ Code
+ Issues 0
+ Pull requests 0 Actions
+ Projects 0
+ Wiki
+ Security 0
+ Insights
+randomForestReg/main.c
+@kostas1515 kostas1515 split rewritten, binary tree, count non-zero,fix termination condition
+eb4fecd 14 hours ago
+@kostas1515@theotrio
+665 lines (554 sloc)  18.9 KB
+  
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -572,49 +603,57 @@ int main(void)
         for (int i=0; i < no_Of_nodes; i++)
             feat_thres[j][i] = malloc((2)*sizeof(float));
     }
-    int next_child=0;
+
+    int current_node = 0;
+    int nodes_per_level[depth];
+    nodes_per_level[0]=1;
+    int next_node_pos[pow(2,depth-1)];
     int next_left_child=0;
     int next_right_child=0;
     int number_non_zero=0;
     int left_flag=1;
     int right_flag=1;
 
+    //initialise nodes_per_level
+    for(int i=1; i<depth; i++)
+    {
+        nodes_per_level[i]=0;
+    }
+
     for (int fi = 0; fi < num_of_trees; ++fi)
     {
         /* forest iteration */
         for (int ki = 0; ki < depth; ++ki)
         {
-            next_child=root/pow(2,ki);
+            current_node=root/pow(2,ki);
 
-            for (int kj = 0; kj < pow(2,ki); ++kj)
+            for (int kj = 0; kj < nodes_per_level[ki]; ++kj)
             {
-                get_best_descriptor(utilities_matrix[fi], forest[fi][next_child],target_y);
-                get_best_threshold(utilities_matrix[fi], forest[fi][next_child],target_y);
-                feat_thres[fi][next_child][0]=utilities_matrix[fi][2];
-                feat_thres[fi][next_child][1]=utilities_matrix[fi][3];
+                get_best_descriptor(utilities_matrix[fi], forest[fi][current_node],target_y);
+                get_best_threshold(utilities_matrix[fi], forest[fi][current_node],target_y);
+                feat_thres[fi][current_node][0]=utilities_matrix[fi][2];
+                feat_thres[fi][current_node][1]=utilities_matrix[fi][3];
 
-                if (ki!=0)
-                {
-                    next_child=next_child+pow(2,depth-ki);
-                }
                 if(ki<depth-1)
                 {
-                    next_left_child=next_child-pow(2,depth-ki-2);//next level left
+                    next_left_child=current_node-pow(2,depth-ki-2);//next level left
+                    next_node_pos[nodes_per_level[ki+1]] = next_left_child;
+                    nodes_per_level[ki+1]++;
 
                     next_right_child=next_left_child+pow(2,ki-1); //next level right
+                    next_node_pos[nodes_per_level[ki+1]] = next_right_child;
+                    nodes_per_level[ki+1]++;
 
                     printf("new\n");
                     
-                    split(utilities_matrix[fi],forest[fi][next_left_child], forest[fi][next_right_child], forest[fi][next_child]);
+                    split(utilities_matrix[fi],forest[fi][next_left_child], forest[fi][next_right_child], forest[fi][current_node]);
                     // count the number of non-zero elements
                     // if the count <2 then don't do the split
                     // create two flags for left and right, if 1 do not do the split
                     for (int nel = 0; nel < NELEMS(forest[fi][next_left_child][0]); ++nel)
                     {
-                        /* code */
                         if (forest[fi][next_left_child][0][nel]!=0)
                         {
-                            /* code */
                             number_non_zero++;
                         }
                     }
@@ -626,10 +665,8 @@ int main(void)
 
                     for (int nel = 0; nel < NELEMS(forest[fi][next_right_child][0]); ++nel)
                     {
-                        /* code */
                         if (forest[fi][next_right_child][0][nel]!=0)
                         {
-                            /* code */
                             number_non_zero++;
                         }
                     }
@@ -639,8 +676,10 @@ int main(void)
                     }
                     number_non_zero=0;
                 }
+                current_node=next_node_pos[kj];
 
             }
+            
         }
     }
 
@@ -663,3 +702,4 @@ int main(void)
     
 
 }
+
