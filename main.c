@@ -1,34 +1,3 @@
-Skip to content
-Search or jump to…
-
-Pull requests
-Issues
-Marketplace
-Explore
- 
-@theotrio 
-Learn Git and GitHub without any code!
-Using the Hello World guide, you’ll start a branch, write comments, and open a pull request.
-
-
-kostas1515
-/
-randomForestReg
-1
-00
- Code
- Issues 0
- Pull requests 0 Actions
- Projects 0
- Wiki
- Security 0
- Insights
-randomForestReg/main.c
-@kostas1515 kostas1515 split rewritten, binary tree, count non-zero,fix termination condition
-eb4fecd 14 hours ago
-@kostas1515@theotrio
-665 lines (554 sloc)  18.9 KB
-  
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -36,24 +5,77 @@ eb4fecd 14 hours ago
 #include <dirent.h>
 #include <time.h>
 #include <math.h>
-#define FILE_NUMBER 2 //default 52
+#define FILE_NUMBER 1 //default 52
+#include <limits.h> 
 
 
 
 //################# FUNCTIONS OF THE ALGORITHM ##############################
 
-
+struct Stack { 
+    int top; 
+    unsigned capacity; 
+    int* array; 
+}; 
+  
+// function to create a stack of given capacity. It initializes size of 
+// stack as 0 
+struct Stack* createStack(unsigned capacity) 
+{ 
+    struct Stack* stack = (struct Stack*)malloc(sizeof(struct Stack)); 
+    stack->capacity = capacity; 
+    stack->top = -1; 
+    stack->array = (int*)malloc(stack->capacity * sizeof(int)); 
+    return stack;
+} 
+  
+// Stack is full when top is equal to the last index 
+int isFull(struct Stack* stack) 
+{ 
+    return stack->top == stack->capacity - 1; 
+} 
+  
+// Stack is empty when top is equal to -1 
+int isEmpty(struct Stack* stack) 
+{ 
+    return stack->top == -1; 
+} 
+  
+// Function to add an item to stack.  It increases top by 1 
+void push(struct Stack* stack, int item) 
+{ 
+    if (isFull(stack)) 
+        return; 
+    stack->array[++stack->top] = item;
+    // printf("%d pushed to stack\n", item);
+} 
+  
+// Function to remove an item from stack.  It decreases top by 1 
+int pop(struct Stack* stack) 
+{ 
+    if (isEmpty(stack)) 
+        return INT_MIN; 
+    return stack->array[stack->top--]; 
+} 
+  
+// Function to return the top from stack without removing it 
+int peek(struct Stack* stack) 
+{ 
+    if (isEmpty(stack)) 
+        return INT_MIN; 
+    return stack->array[stack->top]; 
+} 
 
 void split(int *size_matrix,float **child1, float **child2, float **parent)
 {
-    int parent_i = size_matrix[0];//4
-    int parent_j = size_matrix[1];//6
+    int parent_i = size_matrix[0];//4 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
+    int parent_j = size_matrix[1];//6 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    int child1_i = size_matrix[3]+1;//3
-    int child1_j = size_matrix[1];//6
+    int child1_i = size_matrix[3]+1;//3 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
+    int child1_j = size_matrix[1];//6 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    int child2_i = size_matrix[0]-size_matrix[3]-1;//1
-    int child2_j = size_matrix[1];//6
+    int child2_i = size_matrix[0]-size_matrix[3]-1;//1 WRONG!!!!!!!!!!!!!!!!!!!!
+    int child2_j = size_matrix[1];//6 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
 
     int c1i=0;
     int c1j=0;
@@ -68,7 +90,7 @@ void split(int *size_matrix,float **child1, float **child2, float **parent)
         c2i=0;
         for (int i=0;i<parent_i;i++)
         {
-            if (i<child1_i)//true for {0,1,2}
+            if (parent[i][size_matrix[2]]<=parent[size_matrix[3]][size_matrix[2]])//true for {0,1,2}
             {
                 child1[c1i][c1j]=parent[i][j];
                 c1i++;
@@ -83,6 +105,11 @@ void split(int *size_matrix,float **child1, float **child2, float **parent)
         c2j++;
     }
 
+}
+
+void update_utility_matrix(int *size_matrix,int temp_numel)
+{
+    size_matrix[0]=temp_numel;
 }
 
 void get_best_threshold(int *size_matrix, float **parent,float *target)
@@ -412,7 +439,7 @@ int main(void)
     strcpy(temp_path,path);
 
     struct dirent *de;  // Pointer for directory entry 
-    char csvs[52][50]; //this is a list of the csvs
+    char csvs[FILE_NUMBER][50]; //this is a list of the csvs
     int csv=0; //counter for csv
     // opendir() returns a pointer of DIR type.  
     DIR *dr = opendir(path); 
@@ -545,7 +572,20 @@ int main(void)
     }
     */
     int depth = 3;
-    int no_Of_nodes = pow(2,depth)-1;
+    int no_Of_nodes = (int)pow(2,depth)-1;
+    struct Stack* node_stack=createStack(no_Of_nodes);
+    struct Stack* level_stuck=createStack(no_Of_nodes);
+    struct Stack* child_el_num_stuck=createStack(no_Of_nodes);
+
+    int root=(no_Of_nodes/2);
+    int current_root=0;
+    int level=1;
+    int splitable=1;
+    int left_node=0;
+    int right_node=0;
+    int number_of_elements=0;//counts the number of elements of the root, if less than 2 don't split
+    int temp_numel=0;//input to child_el_num_stuck
+    float **temp_child_data;
     printf("The number of nodes is %d\n",no_Of_nodes);
 
     /**
@@ -556,14 +596,20 @@ int main(void)
     for (int f = 0; f < num_of_trees; ++f)
     {
         forest[f]=malloc(no_Of_nodes * sizeof(float **));
-        for (int n=0; n < no_Of_nodes; n++)
-        {
-            forest[f][n] = malloc(TOTAL_NUM_ROW * sizeof(float *));
-            for(int i=0; i<TOTAL_NUM_ROW; i++)
-            {
-                forest[f][n][i] = malloc((tree_size)*sizeof(float));
-            }
-        }
+    }
+
+
+    //root data matrix.
+    float **roots_temp = malloc(TOTAL_NUM_ROW * sizeof(float *));
+    for (int i=0; i < TOTAL_NUM_ROW; i++)
+    {
+            roots_temp[i] = malloc(tree_size*sizeof(float));
+    }
+
+    for (int i = 0; i < num_of_trees; ++i)
+    {
+        /* fill first layer */
+        forest[i][root]=roots_temp;
     }
 
     //Normalise the data table
@@ -573,11 +619,8 @@ int main(void)
     get_target( TOTAL_NUM_ROW,target_feature,data,target_y);
 
     //fill the ROOOOOTTT of the tree, it will be the middle index of the node array
-    int root=(no_Of_nodes/2);
-    for (int i = 0; i < num_of_trees; ++i)
-    {   
-        fillBof(TOTAL_NUM_ROW,col_num,tree_size,data,forest[i][root],target_feature,i+3);
-    }
+    
+
 
 
 
@@ -595,6 +638,14 @@ int main(void)
         utilities_matrix[i][2]=0;
         utilities_matrix[i][3]=0;
     }
+
+    for (int i = 0; i < num_of_trees; ++i)
+    {   
+        fillBof(TOTAL_NUM_ROW,col_num,tree_size,data,forest[i][root],target_feature,i+3);
+        get_best_descriptor(utilities_matrix[i], forest[i][root],target_y);
+        get_best_threshold(utilities_matrix[i], forest[i][root],target_y);
+        // printMatrF(TOTAL_NUM_ROW,col_num,forest[i][root]);
+    }
     // feat_thres is a 3-d matrix [num_of_tress][num_of_nodes][best_feature,float threshold]
     float ***feat_thres = malloc(num_of_trees * sizeof(float **));
     for (int j = 0; j < num_of_trees; ++j)
@@ -604,102 +655,93 @@ int main(void)
             feat_thres[j][i] = malloc((2)*sizeof(float));
     }
 
-    int current_node = 0;
-    int nodes_per_level[depth];
-    nodes_per_level[0]=1;
-    int next_node_pos[pow(2,depth-1)];
-    int next_left_child=0;
-    int next_right_child=0;
-    int number_non_zero=0;
-    int left_flag=1;
-    int right_flag=1;
 
-    //initialise nodes_per_level
-    for(int i=1; i<depth; i++)
-    {
-        nodes_per_level[i]=0;
-    }
 
     for (int fi = 0; fi < num_of_trees; ++fi)
     {
         /* forest iteration */
-        for (int ki = 0; ki < depth; ++ki)
+        printf("new forest\n");
+        level=1;
+        push(node_stack,root);//3
+        push(level_stuck,level);//1
+        push(child_el_num_stuck,utilities_matrix[fi][0]);//33
+        splitable=1;
+
+        while(!isEmpty(node_stack))
         {
-            current_node=root/pow(2,ki);
+            current_root=pop(node_stack);//3
+            temp_numel=pop(child_el_num_stuck);//the current number of elements for current_root aka parent {33}
+            level=pop(level_stuck);//1,2
 
-            for (int kj = 0; kj < nodes_per_level[ki]; ++kj)
+            update_utility_matrix(utilities_matrix[fi],temp_numel);
+            printMatr(num_of_trees,4,utilities_matrix);
+            // get_best_descriptor(utilities_matrix[fi], forest[fi][current_root],target_y);
+            // get_best_threshold(utilities_matrix[fi], forest[fi][current_root],target_y);
+            
+            // printMatr(num_of_trees,4,utilities_matrix);
+            // printMatrF(temp_numel,tree_size,forest[fi][current_root]);
+            printf("%d\n",current_root );
+
+                //todo get numeric threshold
+            // feat_thres[fi][current_root][0]=utilities_matrix[fi][2];
+            // feat_thres[fi][current_root][1]=utilities_matrix[fi][3];
+
+
+            if(temp_numel<2)
             {
-                get_best_descriptor(utilities_matrix[fi], forest[fi][current_node],target_y);
-                get_best_threshold(utilities_matrix[fi], forest[fi][current_node],target_y);
-                feat_thres[fi][current_node][0]=utilities_matrix[fi][2];
-                feat_thres[fi][current_node][1]=utilities_matrix[fi][3];
+                splitable=0;
+                printf("the number of elems is:%d\n",temp_numel );
+            }
+            if(current_root%2!=0 &&splitable) // if splitable 
+            {
+                left_node=current_root-(int)pow(2,depth-level-1);//1,0
+                right_node=current_root+(int)pow(2,depth-level-1);//5,2
 
-                if(ki<depth-1)
+                if ((level+1)<depth)
                 {
-                    next_left_child=current_node-pow(2,depth-ki-2);//next level left
-                    next_node_pos[nodes_per_level[ki+1]] = next_left_child;
-                    nodes_per_level[ki+1]++;
-
-                    next_right_child=next_left_child+pow(2,ki-1); //next level right
-                    next_node_pos[nodes_per_level[ki+1]] = next_right_child;
-                    nodes_per_level[ki+1]++;
-
-                    printf("new\n");
-                    
-                    split(utilities_matrix[fi],forest[fi][next_left_child], forest[fi][next_right_child], forest[fi][current_node]);
-                    // count the number of non-zero elements
-                    // if the count <2 then don't do the split
-                    // create two flags for left and right, if 1 do not do the split
-                    for (int nel = 0; nel < NELEMS(forest[fi][next_left_child][0]); ++nel)
-                    {
-                        if (forest[fi][next_left_child][0][nel]!=0)
-                        {
-                            number_non_zero++;
-                        }
-                    }
-                    if(number_non_zero<2)
-                    {
-                        left_flag=1;
-                    }
-                    number_non_zero=0;
-
-                    for (int nel = 0; nel < NELEMS(forest[fi][next_right_child][0]); ++nel)
-                    {
-                        if (forest[fi][next_right_child][0][nel]!=0)
-                        {
-                            number_non_zero++;
-                        }
-                    }
-                    if(number_non_zero<2)
-                    {
-                        right_flag=1;
-                    }
-                    number_non_zero=0;
+                    push(level_stuck,level+1);//1+1=2
+                    push(level_stuck,level+1);//1+1=2
+                    push(child_el_num_stuck,temp_numel-utilities_matrix[fi][3]-1);//right node
+                    push(child_el_num_stuck,utilities_matrix[fi][3]+1);//left node 32
+                    push(node_stack,right_node);//11
+                    push(node_stack,left_node);//3,11
                 }
-                current_node=next_node_pos[kj];
+
+
+                temp_child_data=malloc((utilities_matrix[fi][3]+1)*(sizeof(float *)));
+                for (int i = 0; i < utilities_matrix[fi][3]+1; ++i)
+                {
+                    temp_child_data[i]=malloc(tree_size*(sizeof(float)));
+                }
+                forest[fi][left_node]=temp_child_data;
+                free(temp_child_data);// release memory
+
+                temp_child_data=malloc((temp_numel-utilities_matrix[fi][3]-1)*(sizeof(float *)));
+                for (int i = 0; i < temp_numel-utilities_matrix[fi][3]-1; ++i)
+                {
+                    temp_child_data[i]=malloc(tree_size*(sizeof(float)));
+                }
+                forest[fi][right_node]=temp_child_data;
+                free(temp_child_data);
 
             }
-            
+
+
+            //check if data is splitable
         }
+
     }
 
 
-    // printMatrF(TOTAL_NUM_ROW,tree_size,forest[0][root]);
+    printMatr(num_of_trees,4,utilities_matrix);
 
-    // printMatrF(TOTAL_NUM_ROW,tree_size,forest[2]);
-
-    /**
-     * For the best_descriptor function a size_matrix[4] should be defined to record the best 
-     * descriptor and the threhold. We have such a vector for each tree.
-     * --Theo says that we may need to reconsider that...
-    **/
-    // MAIN PROGRAM LOOP
-
-
-    //Calculate the best descriptor for each root.
-
-
-    
 
 }
 
+/*
+TODO:
+change the utilities matrix to float, add more diminsions
+tables are uordered, the lengths are not correct
+count the number of elements for  each table
+make the leafs contain mean value for inference
+*/
