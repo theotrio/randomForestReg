@@ -5,7 +5,7 @@
 #include <dirent.h>
 #include <time.h>
 #include <math.h>
-#define FILE_NUMBER 2 //default 52
+#define FILE_NUMBER 52//default 52
 #include <limits.h> 
 
 
@@ -158,73 +158,70 @@ void get_best_threshold(int *size_matrix, float **parent)
 
     int parent_i = size_matrix[0];
     int parent_j = size_matrix[1];
-    int best_descriptor= size_matrix[2];
     float current_threshold=0;
     int best_threshold=0;
-    int splited_Arr[parent_i];
+    int best_descriptor=0;
     float min_se=pow(10,7);
     float se = 0;
     int counter=0;
-    float sum = 0;
-    float avg =0;
-    for(int k=0; k<parent_i; k++)
+    float sumLeft = 0;
+    float sumRight = 0;
+    float avgTarget =0;
+
+    for (counter = 0; counter < parent_i; ++counter)
     {
-        current_threshold = parent[k][best_descriptor];
-
-        counter =0;
-        for(int i=0; i<parent_i; i++)
+        /* code */
+        avgTarget=avgTarget+parent[counter][parent_j-1];
+    }
+    avgTarget=avgTarget/counter;
+    // printf("avg target is %f\n",avgTarget );
+    
+    for(int m=0;m<parent_j-1;m++)
+    {
+        // printf("mse is %f\n",min_se );
+        for(int k=0; k<parent_i; k++)
         {
-            if(parent[i][best_descriptor]>= current_threshold)
-            {
-                splited_Arr[counter]=i;
-                counter++;
-            }
-        }
+            current_threshold = parent[k][m];
 
-        //Compute the average
-
-        sum = 0;
-        avg =0;
-
-        for(int i=0; i<counter; i++)
-        {
-            sum += parent[splited_Arr[i]][best_descriptor];
-        }
-        if(sum==0.0)
-        {
-            avg =0.0;
-        }
-        else
-        {
-            avg = sum/counter;
-        }
-        sum=0.0;
-
-        //Compute the mse
-
-        for(int i=0; i<counter; i++)
-        {
-            sum += pow(avg-parent[splited_Arr[i]][parent_j-1],2);
-        }
-
-        if(sum==0)
-        {
+            counter =0;
+            sumLeft=0;
+            sumRight=0;
             se=0;
-        }
-        else
-        {
-            se = sum/counter;
-        }
+            for(int i=0; i<parent_i; i++)
+            {
+                if(parent[i][m]<= current_threshold)
+                {
+                    sumLeft += pow(parent[i][parent_j-1]-avgTarget,2);//target value
+                    counter++;
+                }
+                else
+                {
+                    sumRight += pow(parent[i][parent_j-1]-avgTarget,2);//target value 
+                }
+            }
+            // printf("current sumRight is %f\n", sumRight);
+            //Compute the average
 
+            sumLeft=counter*sumLeft;
+            if (counter!=parent_i)
+            {
+                /* code */
+                sumRight=sumRight*(parent_i-counter);
+            }
 
-        if(se<min_se)
-        {
-            min_se=se;
-            best_threshold = k;
+            se=(sumRight+sumLeft)/2;
+            if(se<min_se)
+            {
+                min_se=se;
+                best_threshold = k;
+                best_descriptor=m;
+                // printf("the best is %d\n",parent_i-counter );
+            }
         }
     }
 
     size_matrix[3]=best_threshold;
+    size_matrix[2]=best_descriptor;
 
 }
 
@@ -620,18 +617,7 @@ int main(void)
     //########################     Some Initialisation    ###############################################
     int target_feature = 193; //Target feautr is the population in 193th col
     int tree_size=round(sqrt(col_num))+1; // The number of feature that the root of each tree gets
-    int num_of_trees=100;  //The number of trees
-
-    // Memory allocation for the forest. Each tree is a 2D matrix so the forest is a 3D matrix.
-    /*
-    float ***forest = malloc(num_of_trees * sizeof(float **));
-    for (int j = 0; j < num_of_trees; ++j)
-    {
-        forest[j]=malloc(TOTAL_NUM_ROW * sizeof(float *));
-        for (int i=0; i <= TOTAL_NUM_ROW; i++)
-            forest[j][i] = malloc((tree_size)*sizeof(float));
-    }
-    */
+    int num_of_trees=10;  //The number of trees
     int depth = 8;
     int no_Of_nodes = (int)pow(2,depth)-1;
     struct Stack* node_stack=createStack(no_Of_nodes);
@@ -648,7 +634,7 @@ int main(void)
     float **temp_child_data;
     int **bofArrays = malloc(num_of_trees * sizeof(int *));
     int bofArray[tree_size];
-    int minimum_leaf_size=2;
+    int minimum_leaf_size=16;
     int left_child_size_flag=1;
     int right_child_size_flag=1;
     printf("The number of nodes is %d\n",no_Of_nodes);
@@ -735,7 +721,6 @@ int main(void)
             feat_thres[j][i] = malloc((2)*sizeof(float));
     }
 
-    printf("the root tree\n");
     // printMatrF(TOTAL_NUM_ROW,tree_size,forest[9][root]);
     // printMatrF(TOTAL_NUM_ROW,tree_size,forest[8][root]);
     // printMatrF(TOTAL_NUM_ROW,tree_size,forest[7][root]);
@@ -748,7 +733,7 @@ int main(void)
         push(node_stack,root);//3
         push(level_stuck,level);//1
         push(rt_size,utilities_matrix[fi][0]);
-        printf("Tree %d initial size is:%d\n",fi,utilities_matrix[fi][0]);
+        printf("\nTree %d initial size is:%d  ",fi,utilities_matrix[fi][0]);
         splitable=1;
 
 
@@ -763,10 +748,10 @@ int main(void)
             update_utility_matrix(utilities_matrix[fi],parent_size);//
             
 
-            get_best_descriptor(utilities_matrix[fi], forest[fi][current_root]);
+            // get_best_descriptor(utilities_matrix[fi], forest[fi][current_root]);
             get_best_threshold(utilities_matrix[fi], forest[fi][current_root]);
 
-            printAr1(utilities_matrix[fi],6);
+            
             get_split_childsizes(utilities_matrix[fi],forest[fi][current_root]);
 
             // utilities_matrix[fi][5]=33;
@@ -774,7 +759,7 @@ int main(void)
 
             
 
-            printf("\n left size is: %d", utilities_matrix[fi][4]);
+            printf("left size is: %d", utilities_matrix[fi][4]);
             printf("  right size is: %d\n", utilities_matrix[fi][5]);
            
             // printf("%f\n",forest[fi][current_root][utilities_matrix[fi][3]][utilities_matrix[fi][2]] );
@@ -785,18 +770,17 @@ int main(void)
             feat_thres[fi][current_root][0]=forest[fi][current_root][utilities_matrix[fi][3]][utilities_matrix[fi][2]];
             printf("the numeric threshold is %f\n",feat_thres[fi][current_root][0]);
             feat_thres[fi][current_root][1]=utilities_matrix[fi][3];
+            printAr1(utilities_matrix[fi],6);
             // printAr1(utilities_matrix[fi],6);
 
 
             // printMatr(num_of_trees,6,utilities_matrix);
             
             // printMatr(num_of_trees,4,utilities_matrix);
-            printMatrF(parent_size,tree_size,forest[fi][current_root]);
+            // printMatrF(parent_size,tree_size,forest[fi][current_root]);
 
                 //todo get numeric threshold
-
-
-            if(parent_size<2)
+            if(parent_size<minimum_leaf_size)
             {
                 splitable=0;
                 printf("the number of elems is:%d\n",parent_size );
@@ -838,8 +822,8 @@ int main(void)
                 
                 if(utilities_matrix[fi][5]>0)
                 {
-                    temp_child_data=malloc((33)*(sizeof(float *)));
-                    for (int i = 0; i < 33; ++i)
+                    temp_child_data=malloc((utilities_matrix[fi][5])*(sizeof(float *)));
+                    for (int i = 0; i < utilities_matrix[fi][5]; ++i)
                     {
                         temp_child_data[i]=malloc(tree_size*(sizeof(float)));
                     }
@@ -862,19 +846,9 @@ int main(void)
                 }
             }
 
-
         }
 
     }
     //printMatr(num_of_trees,6,utilities_matrix);
 
 }
-
-/*
-TODO:
-change the utilities matrix to float, add more diminsions
-count the number of elements for  each table
-make the leafs contain mean value for inference
-leaf matrix identification
-return the indexes of bof columns
-*/
