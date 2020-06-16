@@ -9,9 +9,6 @@
 #include <limits.h> 
 
 
-
-//################# FUNCTIONS OF THE ALGORITHM ##############################
-
 struct Stack { 
     int top; 
     unsigned capacity; 
@@ -27,7 +24,9 @@ struct Stack* createStack(unsigned capacity)
     stack->top = -1; 
     stack->array = (int*)malloc(stack->capacity * sizeof(int)); 
     return stack;
-} 
+}
+
+
   
 // Stack is full when top is equal to the last index 
 int isFull(struct Stack* stack) 
@@ -66,21 +65,31 @@ int peek(struct Stack* stack)
     return stack->array[stack->top]; 
 } 
 
+void printAr1(int *myArr, int length)
+{
+    for(int i=0; i<length; i++)
+    {
+        printf("%d  ", myArr[i]);
+    }
+}
+
 void split(int *size_matrix,float **child1, float **child2, float **parent)
 {
-    int parent_i = size_matrix[0];//4 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
-    int parent_j = size_matrix[1];//6 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
+    int parent_i = size_matrix[0];
+    int parent_j = size_matrix[1];
 
-    int child1_i = size_matrix[3]+1;//3 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
-    int child1_j = size_matrix[1];//6 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
+    int child1_i = size_matrix[4];
+    int child1_j = size_matrix[1];
 
-    int child2_i = size_matrix[0]-size_matrix[3]-1;//1 WRONG!!!!!!!!!!!!!!!!!!!!
-    int child2_j = size_matrix[1];//6 WRONG!!!!!!!!!!!!!!!!!!!!!!!!!
+    int child2_i = size_matrix[5];
+    int child2_j = size_matrix[1];
 
     int c1i=0;
     int c1j=0;
     int c2i=0;
     int c2j=0;
+    int best_feature=size_matrix[2];
+    int best_threshold =size_matrix[3];
 
 
 
@@ -90,7 +99,7 @@ void split(int *size_matrix,float **child1, float **child2, float **parent)
         c2i=0;
         for (int i=0;i<parent_i;i++)
         {
-            if (parent[i][size_matrix[2]]<=parent[size_matrix[3]][size_matrix[2]])//true for {0,1,2}
+            if (parent[i][best_feature]<parent[best_threshold][best_feature])//true for {0,1,2}
             {
                 child1[c1i][c1j]=parent[i][j];
                 c1i++;
@@ -105,11 +114,39 @@ void split(int *size_matrix,float **child1, float **child2, float **parent)
         c2j++;
     }
 
+    size_matrix[4]=c1i;
+    size_matrix[5]=c2i;
+
+}
+
+/*Calculate the numebr of rows for each children before the split*/
+void get_split_childsizes(int *util_matrix, float **parent)
+{
+    int num_rows = util_matrix[0];//(total) number of rows
+    int num_tree_columns = util_matrix[1];//number of colums in each tree
+
+    int size_left_child=0;
+    int size_right_child=0;
+
+
+    for (int i=0;i<num_rows;i++)
+    {
+        if (parent[i][util_matrix[2]]<parent[util_matrix[3]][util_matrix[2]])//true for {0,1,2}
+        {
+            size_left_child++;
+        }
+        else
+        {
+            size_right_child++;
+        }
+    }
+    util_matrix[4] = size_left_child;
+    util_matrix[5] = size_right_child;
 }
 
 void update_utility_matrix(int *size_matrix,int temp_numel)
 {
-    size_matrix[0]=temp_numel;
+    size_matrix[0]= temp_numel;
 }
 
 void get_best_threshold(int *size_matrix, float **parent,float *target)
@@ -294,16 +331,13 @@ void createBOF(int cols, int Nfeatures,int target, int seed, int *bof)
     //printf("\n-------------------------------------------------------------------------------------------\n");
 
 }
-
-
 /**
  * This functions fills a submatrix that is in essence the root of a tree of the random forest. 
  * As input it takes the whole data set which has "bigCols" features and then it selects randomly 
  * "Nfeatures" features to fill the smallMatr.
 **/
-void fillBof(int rows, int bigCols, int Nfeatures,float **bigMatr, float **smallMatr,int target,int seed)
+void fillBof(int rows, int bigCols, int Nfeatures,float **bigMatr, float **smallMatr,int *bofAr,int target,int seed)
 {
-    int bofAr[Nfeatures];
     createBOF(bigCols,Nfeatures,target,seed,bofAr);
 
     for(int i=0; i<rows; i++)
@@ -356,14 +390,6 @@ void printMatrF(int rows, int cols, float **Matr)
 }
 
 // A function to print an array with floats
-void printAr1(float *myArr, int length)
-{
-    for(int i=0; i<length; i++)
-    {
-        printf("%f\n", myArr[i]);
-    }
-}
-
 
 void getrow(char* line,char feature_names[][50])
 {
@@ -435,6 +461,7 @@ int main(void)
     //############################### READING THE DATA FROM CSV FILES ###########################################
 
     char path[100]="/home/konsa/Downloads/hartree_data/sample/";// this path should be the folder of data
+    // char path[100]="C:\\Users\\theot\\eclipse-workspaceC\\VSC\\Hartree\\Hartree_Data\\";
     char temp_path[100];// this is just a helper path
     strcpy(temp_path,path);
 
@@ -497,7 +524,7 @@ int main(void)
 
         TOTAL_NUM_ROW=TOTAL_NUM_ROW+row_num;
         row_num=0;
-        //fclose(fp);
+        // fclose(fp);
         
     }
     TOTAL_NUM_ROW=TOTAL_NUM_ROW-1;
@@ -575,7 +602,7 @@ int main(void)
     int no_Of_nodes = (int)pow(2,depth)-1;
     struct Stack* node_stack=createStack(no_Of_nodes);
     struct Stack* level_stuck=createStack(no_Of_nodes);
-    struct Stack* child_el_num_stuck=createStack(no_Of_nodes);
+    struct Stack* rt_size=createStack(no_Of_nodes);
 
     int root=(no_Of_nodes/2);
     int current_root=0;
@@ -584,14 +611,32 @@ int main(void)
     int left_node=0;
     int right_node=0;
     int number_of_elements=0;//counts the number of elements of the root, if less than 2 don't split
-    int temp_numel=0;//input to child_el_num_stuck
+    int parent_size=0;
+    int left_child_size=0;
+    int right_child_size=0;
     float **temp_child_data;
+    int **bofArrays = malloc(num_of_trees * sizeof(int *));
+    int bofArray[tree_size];
+    int minimum_leaf_size=2;
+    int left_child_size_flag=1;
+    int right_child_size_flag=1;
     printf("The number of nodes is %d\n",no_Of_nodes);
+
+
+
+    int num_rows ;//(total) number of rows
+    int num_tree_columns ;//number of colums in each tree
+
+    int size_left_child=0;
+    int size_right_child=0;
+
+
 
     /**
      * Memory allocation for the forest.
      * Each node is a 2D matrix thus each tree is a 3D matrix and the forest is a 4D matrix.
      **/
+
     float ****forest = malloc(num_of_trees * sizeof(float ***));
     for (int f = 0; f < num_of_trees; ++f)
     {
@@ -600,17 +645,24 @@ int main(void)
 
 
     //root data matrix.
-    float **roots_temp = malloc(TOTAL_NUM_ROW * sizeof(float *));
-    for (int i=0; i < TOTAL_NUM_ROW; i++)
+    float ***roots_temp = malloc(num_of_trees * sizeof(float **));
+    for (int k = 0; k < num_of_trees; ++k)
     {
-            roots_temp[i] = malloc(tree_size*sizeof(float));
+        roots_temp[k]=malloc(TOTAL_NUM_ROW*sizeof(float *));
+        for (int i=0; i < TOTAL_NUM_ROW; i++)
+        {
+            roots_temp[k][i] = malloc(tree_size*sizeof(float));
+        }
     }
+
 
     for (int i = 0; i < num_of_trees; ++i)
     {
         /* fill first layer */
-        forest[i][root]=roots_temp;
+        forest[i][root]=roots_temp[i];
     }
+
+
 
     //Normalise the data table
     normalise(data,TOTAL_NUM_ROW,col_num);
@@ -621,13 +673,10 @@ int main(void)
     //fill the ROOOOOTTT of the tree, it will be the middle index of the node array
     
 
-
-
-
     int **utilities_matrix = malloc(num_of_trees * sizeof(int *));
     for (int i=0; i < num_of_trees; i++)
     {
-            utilities_matrix[i] = malloc(4 * sizeof(int));
+            utilities_matrix[i] = malloc(6 * sizeof(int));
     }
 
     //Initialise the above matrix.
@@ -637,14 +686,14 @@ int main(void)
         utilities_matrix[i][1]=tree_size;
         utilities_matrix[i][2]=0;
         utilities_matrix[i][3]=0;
+        utilities_matrix[i][4]=0;
+        utilities_matrix[i][5]=0;
     }
 
     for (int i = 0; i < num_of_trees; ++i)
     {   
-        fillBof(TOTAL_NUM_ROW,col_num,tree_size,data,forest[i][root],target_feature,i+3);
-        get_best_descriptor(utilities_matrix[i], forest[i][root],target_y);
-        get_best_threshold(utilities_matrix[i], forest[i][root],target_y);
-        // printMatrF(TOTAL_NUM_ROW,col_num,forest[i][root]);
+        fillBof(TOTAL_NUM_ROW,col_num,tree_size,data,forest[i][root],bofArray,target_feature,i+3);
+        bofArrays[i] = bofArray;
     }
     // feat_thres is a 3-d matrix [num_of_tress][num_of_nodes][best_feature,float threshold]
     float ***feat_thres = malloc(num_of_trees * sizeof(float **));
@@ -655,42 +704,68 @@ int main(void)
             feat_thres[j][i] = malloc((2)*sizeof(float));
     }
 
-
+    printf("the root tree\n");
+    // printMatrF(TOTAL_NUM_ROW,tree_size,forest[9][root]);
+    // printMatrF(TOTAL_NUM_ROW,tree_size,forest[8][root]);
+    // printMatrF(TOTAL_NUM_ROW,tree_size,forest[7][root]);
 
     for (int fi = 0; fi < num_of_trees; ++fi)
     {
         /* forest iteration */
-        printf("new forest\n");
         level=1;
+
         push(node_stack,root);//3
         push(level_stuck,level);//1
-        push(child_el_num_stuck,utilities_matrix[fi][0]);//33
+        push(rt_size,utilities_matrix[fi][0]);
+        printf("Tree %d initial size is:%d\n",fi,utilities_matrix[fi][0]);
         splitable=1;
+
 
         while(!isEmpty(node_stack))
         {
             current_root=pop(node_stack);//3
-            temp_numel=pop(child_el_num_stuck);//the current number of elements for current_root aka parent {33}
-            level=pop(level_stuck);//1,2
+            printf("current root = %d ", current_root);
+            parent_size=pop(rt_size);
+            printf(" Current parent size = %d \n", parent_size);
+            level=pop(level_stuck);
 
-            update_utility_matrix(utilities_matrix[fi],temp_numel);
-            printMatr(num_of_trees,4,utilities_matrix);
-            // get_best_descriptor(utilities_matrix[fi], forest[fi][current_root],target_y);
-            // get_best_threshold(utilities_matrix[fi], forest[fi][current_root],target_y);
+            update_utility_matrix(utilities_matrix[fi],parent_size);//
+            
+
+            get_best_descriptor(utilities_matrix[fi], forest[fi][current_root],target_y);
+
+            get_best_threshold(utilities_matrix[fi], forest[fi][current_root],target_y);
+            printAr1(utilities_matrix[fi],6);
+            get_split_childsizes(utilities_matrix[fi],forest[fi][current_root]);
+
+            // utilities_matrix[fi][5]=33;
+            num_rows = utilities_matrix[fi][0];//(total) number of rows
+
+            
+
+            printf("\n left size is: %d", utilities_matrix[fi][4]);
+            printf("  right size is: %d\n", utilities_matrix[fi][5]);
+           
+            // printf("%f\n",forest[fi][current_root][utilities_matrix[fi][3]][utilities_matrix[fi][2]] );
+
+            left_child_size_flag=0;
+            right_child_size_flag=0;
+            // printAr1(utilities_matrix[fi],6);
+
+
+            // printMatr(num_of_trees,6,utilities_matrix);
             
             // printMatr(num_of_trees,4,utilities_matrix);
-            // printMatrF(temp_numel,tree_size,forest[fi][current_root]);
-            printf("%d\n",current_root );
+            printMatrF(parent_size,tree_size,forest[fi][current_root]);
 
                 //todo get numeric threshold
             // feat_thres[fi][current_root][0]=utilities_matrix[fi][2];
             // feat_thres[fi][current_root][1]=utilities_matrix[fi][3];
 
-
-            if(temp_numel<2)
+            if(parent_size<2)
             {
                 splitable=0;
-                printf("the number of elems is:%d\n",temp_numel );
+                printf("the number of elems is:%d\n",parent_size );
             }
             if(current_root%2!=0 &&splitable) // if splitable 
             {
@@ -699,31 +774,60 @@ int main(void)
 
                 if ((level+1)<depth)
                 {
-                    push(level_stuck,level+1);//1+1=2
-                    push(level_stuck,level+1);//1+1=2
-                    push(child_el_num_stuck,temp_numel-utilities_matrix[fi][3]-1);//right node
-                    push(child_el_num_stuck,utilities_matrix[fi][3]+1);//left node 32
-                    push(node_stack,right_node);//11
-                    push(node_stack,left_node);//3,11
+                    if(utilities_matrix[fi][5]>minimum_leaf_size)
+                    {
+                        printf("pushed right\n");
+                        push(rt_size,utilities_matrix[fi][5]);//right node
+                        push(node_stack,right_node);//11
+                        push(level_stuck,level+1);//1+1=2
+                    }
+                    if(utilities_matrix[fi][4]>minimum_leaf_size)
+                    {   
+                        printf("pushed left\n");
+                        push(rt_size,utilities_matrix[fi][4]);//left node 32
+                        push(node_stack,left_node);//3,11
+                        push(level_stuck,level+1);//1+1=2
+                    }
                 }
-
-
-                temp_child_data=malloc((utilities_matrix[fi][3]+1)*(sizeof(float *)));
-                for (int i = 0; i < utilities_matrix[fi][3]+1; ++i)
+                if (utilities_matrix[fi][4]>0)
                 {
-                    temp_child_data[i]=malloc(tree_size*(sizeof(float)));
+                    /* code */
+                    temp_child_data=malloc((utilities_matrix[fi][4])*(sizeof(float *)));
+                    for (int i = 0; i < utilities_matrix[fi][4]; ++i)
+                    {
+                        temp_child_data[i]=malloc(tree_size*(sizeof(float)));
+                    }
+                    forest[fi][left_node]=temp_child_data;
+                    left_child_size_flag=1;
                 }
-                forest[fi][left_node]=temp_child_data;
-                free(temp_child_data);// release memory
 
-                temp_child_data=malloc((temp_numel-utilities_matrix[fi][3]-1)*(sizeof(float *)));
-                for (int i = 0; i < temp_numel-utilities_matrix[fi][3]-1; ++i)
+                // free(temp_child_data);// release memory
+                
+                if(utilities_matrix[fi][5]>0)
                 {
-                    temp_child_data[i]=malloc(tree_size*(sizeof(float)));
+                    temp_child_data=malloc((33)*(sizeof(float *)));
+                    for (int i = 0; i < 33; ++i)
+                    {
+                        temp_child_data[i]=malloc(tree_size*(sizeof(float)));
+                    }
+                    forest[fi][right_node]=temp_child_data;
+                    right_child_size_flag=1;
                 }
-                forest[fi][right_node]=temp_child_data;
-                free(temp_child_data);
 
+                // free(temp_child_data);
+
+                if(left_child_size_flag&&right_child_size_flag)
+                {
+                    split(utilities_matrix[fi],forest[fi][left_node],forest[fi][right_node],forest[fi][current_root]);
+                }
+                else if(left_child_size_flag&&!right_child_size_flag)
+                {
+                    forest[fi][left_node]=forest[fi][current_root];
+                }
+                else
+                {
+                    forest[fi][right_node]=forest[fi][current_root];
+                }
             }
 
 
@@ -733,15 +837,15 @@ int main(void)
     }
 
 
-    printMatr(num_of_trees,4,utilities_matrix);
-
+    //printMatr(num_of_trees,6,utilities_matrix);
 
 }
 
 /*
 TODO:
 change the utilities matrix to float, add more diminsions
-tables are uordered, the lengths are not correct
 count the number of elements for  each table
 make the leafs contain mean value for inference
+leaf matrix identification
+return the indexes of bof columns
 */
