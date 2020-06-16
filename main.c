@@ -5,7 +5,7 @@
 #include <dirent.h>
 #include <time.h>
 #include <math.h>
-#define FILE_NUMBER 1 //default 52
+#define FILE_NUMBER 2 //default 52
 #include <limits.h> 
 
 
@@ -149,7 +149,7 @@ void update_utility_matrix(int *size_matrix,int temp_numel)
     size_matrix[0]= temp_numel;
 }
 
-void get_best_threshold(int *size_matrix, float **parent,float *target)
+void get_best_threshold(int *size_matrix, float **parent)
 {
     /*
     updates utilities_matrix last position, which is the row index of the best threshold where the split must happen.
@@ -159,40 +159,72 @@ void get_best_threshold(int *size_matrix, float **parent,float *target)
     int parent_i = size_matrix[0];
     int parent_j = size_matrix[1];
     int best_descriptor= size_matrix[2];
-    int k=0; //slides across feature col
-    int count=0;//slides until k to compute avrg
-    double avg=0;
-    double se=0;
-    double min_mse=10000;
-
-
-    for (k=0;k<parent_i-1;k++)
+    float current_threshold=0;
+    int best_threshold=0;
+    int splited_Arr[parent_i];
+    float min_se=pow(10,7);
+    float se = 0;
+    int counter=0;
+    float sum = 0;
+    float avg =0;
+    for(int k=0; k<parent_i; k++)
     {
-        avg=0;
-        //calculate mean squere error
-        for (count=0;count<k+1;count++)
-        {
-            avg=avg+parent[count][best_descriptor];
-        }
-        avg=avg/(k+1);
+        current_threshold = parent[k][best_descriptor];
 
-        for (int i = 0; i < parent_i; ++i)
+        counter =0;
+        for(int i=0; i<parent_i; i++)
         {
-            se=se+pow((avg-target[i]),2);
+            if(parent[i][best_descriptor]>= current_threshold)
+            {
+                splited_Arr[counter]=i;
+                counter++;
+            }
         }
 
-        if (se<min_mse)
+        //Compute the average
+
+        sum = 0;
+        avg =0;
+
+        for(int i=0; i<counter; i++)
         {
-            min_mse=se;
-            size_matrix[3]=k;
+            sum += parent[splited_Arr[i]][best_descriptor];
+        }
+        if(sum==0.0)
+        {
+            avg =0.0;
+        }
+        else
+        {
+            avg = sum/counter;
+        }
+        sum=0.0;
+
+        //Compute the mse
+
+        for(int i=0; i<counter; i++)
+        {
+            sum += pow(avg-parent[splited_Arr[i]][parent_j-1],2);
+        }
+
+        if(sum==0)
+        {
             se=0;
         }
         else
         {
-            se=0;
+            se = sum/counter;
         }
 
+
+        if(se<min_se)
+        {
+            min_se=se;
+            best_threshold = k;
+        }
     }
+
+    size_matrix[3]=best_threshold;
 
 }
 
@@ -239,14 +271,14 @@ void normalise(float **matrix, int rows, int cols)
  * This functions stores in matrix[2] the best feature (number of column) and matrix[3] the
  * best threshold.
 **/
-void get_best_descriptor(int *size_matrix, float **parent,float *target)
+void get_best_descriptor(int *size_matrix, float **parent)
 {
 
     int parent_i = size_matrix[0];
-    int parent_j = size_matrix[1];
+    int parent_j = size_matrix[1]-1; //minus 1 because the last column is the target and must be excluded
 
     int k=0; //check for all feature colms
-    double min_mse=100000000.0; //a very big mse to start with
+    double min_mse=pow(10,7); //a very big mse to start with
     double average_descripor=0;
     double se=0;
     int best_descriptor;
@@ -265,7 +297,7 @@ void get_best_descriptor(int *size_matrix, float **parent,float *target)
         for (int i = 0; i < parent_i; ++i)
         {
             /* sum  */
-            se=se+pow((average_descripor-target[i]),2);
+            se=se+pow((average_descripor-parent[i][parent_j]),2);
         }
         se=se/parent_i;
         
@@ -317,7 +349,7 @@ void createBOF(int cols, int Nfeatures,int target, int seed, int *bof)
         seed = rand()%5;
     }
 
-    while(i<Nfeatures)
+    while(i<Nfeatures-1)
     {
         r = ((rand()%11)*seed + (rand()%13)*seed + (rand()%109)*seed + (rand()%71)*seed + (rand()%203)*seed ) % (cols-i);
         if (r!=target)
@@ -326,8 +358,9 @@ void createBOF(int cols, int Nfeatures,int target, int seed, int *bof)
             array1[r] = array1[cols-1-i];
             i++;
         }
-
     }
+    bof[Nfeatures-1] = target;
+
     //printf("\n-------------------------------------------------------------------------------------------\n");
 
 }
@@ -460,7 +493,8 @@ int main(void)
 {
     //############################### READING THE DATA FROM CSV FILES ###########################################
 
-    char path[100]="/home/konsa/Downloads/hartree_data/sample/";// this path should be the folder of data
+    // char path[100]="/home/konsa/Downloads/hartree_data/sample/";// this path should be the folder of data
+    char path[100]="/home/konsa/Downloads/hartree_data/";
     // char path[100]="C:\\Users\\theot\\eclipse-workspaceC\\VSC\\Hartree\\Hartree_Data\\";
     char temp_path[100];// this is just a helper path
     strcpy(temp_path,path);
@@ -585,8 +619,8 @@ int main(void)
 
     //########################     Some Initialisation    ###############################################
     int target_feature = 193; //Target feautr is the population in 193th col
-    int tree_size=round(sqrt(col_num)); // The number of feature that the root of each tree gets
-    int num_of_trees=10;  //The number of trees
+    int tree_size=round(sqrt(col_num))+1; // The number of feature that the root of each tree gets
+    int num_of_trees=100;  //The number of trees
 
     // Memory allocation for the forest. Each tree is a 2D matrix so the forest is a 3D matrix.
     /*
@@ -598,7 +632,7 @@ int main(void)
             forest[j][i] = malloc((tree_size)*sizeof(float));
     }
     */
-    int depth = 3;
+    int depth = 8;
     int no_Of_nodes = (int)pow(2,depth)-1;
     struct Stack* node_stack=createStack(no_Of_nodes);
     struct Stack* level_stuck=createStack(no_Of_nodes);
@@ -610,10 +644,7 @@ int main(void)
     int splitable=1;
     int left_node=0;
     int right_node=0;
-    int number_of_elements=0;//counts the number of elements of the root, if less than 2 don't split
     int parent_size=0;
-    int left_child_size=0;
-    int right_child_size=0;
     float **temp_child_data;
     int **bofArrays = malloc(num_of_trees * sizeof(int *));
     int bofArray[tree_size];
@@ -732,9 +763,9 @@ int main(void)
             update_utility_matrix(utilities_matrix[fi],parent_size);//
             
 
-            get_best_descriptor(utilities_matrix[fi], forest[fi][current_root],target_y);
+            get_best_descriptor(utilities_matrix[fi], forest[fi][current_root]);
+            get_best_threshold(utilities_matrix[fi], forest[fi][current_root]);
 
-            get_best_threshold(utilities_matrix[fi], forest[fi][current_root],target_y);
             printAr1(utilities_matrix[fi],6);
             get_split_childsizes(utilities_matrix[fi],forest[fi][current_root]);
 
@@ -750,6 +781,10 @@ int main(void)
 
             left_child_size_flag=0;
             right_child_size_flag=0;
+
+            feat_thres[fi][current_root][0]=forest[fi][current_root][utilities_matrix[fi][3]][utilities_matrix[fi][2]];
+            printf("the numeric threshold is %f\n",feat_thres[fi][current_root][0]);
+            feat_thres[fi][current_root][1]=utilities_matrix[fi][3];
             // printAr1(utilities_matrix[fi],6);
 
 
@@ -759,8 +794,7 @@ int main(void)
             printMatrF(parent_size,tree_size,forest[fi][current_root]);
 
                 //todo get numeric threshold
-            // feat_thres[fi][current_root][0]=utilities_matrix[fi][2];
-            // feat_thres[fi][current_root][1]=utilities_matrix[fi][3];
+
 
             if(parent_size<2)
             {
@@ -801,7 +835,6 @@ int main(void)
                     left_child_size_flag=1;
                 }
 
-                // free(temp_child_data);// release memory
                 
                 if(utilities_matrix[fi][5]>0)
                 {
@@ -814,7 +847,6 @@ int main(void)
                     right_child_size_flag=1;
                 }
 
-                // free(temp_child_data);
 
                 if(left_child_size_flag&&right_child_size_flag)
                 {
@@ -831,12 +863,9 @@ int main(void)
             }
 
 
-            //check if data is splitable
         }
 
     }
-
-
     //printMatr(num_of_trees,6,utilities_matrix);
 
 }
