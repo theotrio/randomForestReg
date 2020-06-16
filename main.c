@@ -5,7 +5,7 @@
 #include <dirent.h>
 #include <time.h>
 #include <math.h>
-#define FILE_NUMBER 52//default 52
+#define FILE_NUMBER 5//default 52
 #include <limits.h> 
 
 
@@ -158,15 +158,15 @@ void get_best_threshold(int *size_matrix, float **parent)
 
     int parent_i = size_matrix[0];
     int parent_j = size_matrix[1];
-    float current_threshold=0;
+    double current_threshold=0;
     int best_threshold=0;
     int best_descriptor=0;
-    float min_se=pow(10,7);
-    float se = 0;
+    double min_se=pow(10,9);
+    double se = 0;
     int counter=0;
-    float sumLeft = 0;
-    float sumRight = 0;
-    float avgTarget =0;
+    double sumLeft = 0;
+    double sumRight = 0;
+    double avgTarget =0;
 
     for (counter = 0; counter < parent_i; ++counter)
     {
@@ -202,11 +202,11 @@ void get_best_threshold(int *size_matrix, float **parent)
             // printf("current sumRight is %f\n", sumRight);
             //Compute the average
 
-            sumLeft=counter*sumLeft;
+            sumLeft=(counter*sumLeft)/parent_i;
             if (counter!=parent_i)
             {
                 /* code */
-                sumRight=sumRight*(parent_i-counter);
+                sumRight=sumRight*(parent_i-counter)/parent_i;
             }
 
             se=(sumRight+sumLeft)/2;
@@ -331,8 +331,9 @@ void createBOF(int cols, int Nfeatures,int target, int seed, int *bof)
 {
     srand(time(NULL));   // Initialization, should only be called once.
     int r = 0;
+    int exclude_list[23]={0,18,26,34,42,50,58,66,67,74,75,76,77,82,90,98,106,114,122,123,130,131,132};
 
-
+    int flag=1;
     int array1[cols];
 
     for(int i=0; i<cols; i++)
@@ -349,7 +350,13 @@ void createBOF(int cols, int Nfeatures,int target, int seed, int *bof)
     while(i<Nfeatures-1)
     {
         r = ((rand()%11)*seed + (rand()%13)*seed + (rand()%109)*seed + (rand()%71)*seed + (rand()%203)*seed ) % (cols-i);
-        if (r!=target)
+        flag=1;
+        for (int e = 0; e < 23; ++e)
+        {
+            /* code */
+            flag=flag&&(r!=exclude_list[e]);
+        }
+        if ((r!=target)&&flag)
         {
             bof[i] = array1[r];
             array1[r] = array1[cols-1-i];
@@ -490,8 +497,8 @@ int main(void)
 {
     //############################### READING THE DATA FROM CSV FILES ###########################################
 
-    // char path[100]="/home/konsa/Downloads/hartree_data/sample/";// this path should be the folder of data
-    char path[100]="/home/konsa/Downloads/hartree_data/";
+    char path[100]="/home/konsa/Downloads/hartree_data/sample/";// this path should be the folder of data
+    // char path[100]="/home/konsa/Downloads/hartree_data/";
     // char path[100]="C:\\Users\\theot\\eclipse-workspaceC\\VSC\\Hartree\\Hartree_Data\\";
     char temp_path[100];// this is just a helper path
     strcpy(temp_path,path);
