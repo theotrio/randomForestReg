@@ -5,7 +5,7 @@
 #include <dirent.h>
 #include <time.h>
 #include <math.h>
-#define FILE_NUMBER 5//default 52
+#define FILE_NUMBER 2//default 52
 #include <limits.h> 
 
 
@@ -25,7 +25,6 @@ struct Stack* createStack(unsigned capacity)
     stack->array = (int*)malloc(stack->capacity * sizeof(int)); 
     return stack;
 }
-
 
   
 // Stack is full when top is equal to the last index 
@@ -222,6 +221,7 @@ void get_best_threshold(int *size_matrix, float **parent)
 
     size_matrix[3]=best_threshold;
     size_matrix[2]=best_descriptor;
+
 
 }
 
@@ -644,6 +644,7 @@ int main(void)
     int minimum_leaf_size=16;
     int left_child_size_flag=1;
     int right_child_size_flag=1;
+    float avgTarget=0;
     printf("The number of nodes is %d\n",no_Of_nodes);
 
 
@@ -725,7 +726,7 @@ int main(void)
     {
         feat_thres[j]=malloc(no_Of_nodes * sizeof(float *));
         for (int i=0; i < no_Of_nodes; i++)
-            feat_thres[j][i] = malloc((2)*sizeof(float));
+            feat_thres[j][i] = malloc((3)*sizeof(float));
     }
 
     // printMatrF(TOTAL_NUM_ROW,tree_size,forest[9][root]);
@@ -747,44 +748,36 @@ int main(void)
         while(!isEmpty(node_stack))
         {
             current_root=pop(node_stack);//3
+            splitable=1;
             printf("current root = %d ", current_root);
             parent_size=pop(rt_size);
-            printf(" Current parent size = %d \n", parent_size);
+            printf(" Current parent size = %d", parent_size);
             level=pop(level_stuck);
-
+            printf(" Current level = %d ", level);
             update_utility_matrix(utilities_matrix[fi],parent_size);//
             
-
             // get_best_descriptor(utilities_matrix[fi], forest[fi][current_root]);
-            get_best_threshold(utilities_matrix[fi], forest[fi][current_root]);
+            // get_best_threshold(utilities_matrix[fi], forest[fi][current_root]);
 
-            
-            get_split_childsizes(utilities_matrix[fi],forest[fi][current_root]);
+            // get_split_childsizes(utilities_matrix[fi],forest[fi][current_root]);
 
             // utilities_matrix[fi][5]=33;
-            num_rows = utilities_matrix[fi][0];//(total) number of rows
-
             
 
-            printf("left size is: %d", utilities_matrix[fi][4]);
-            printf("  right size is: %d\n", utilities_matrix[fi][5]);
+            // printf("left size is: %d", utilities_matrix[fi][4]);
+            // printf("  right size is: %d\n", utilities_matrix[fi][5]);
            
             // printf("%f\n",forest[fi][current_root][utilities_matrix[fi][3]][utilities_matrix[fi][2]] );
 
             left_child_size_flag=0;
             right_child_size_flag=0;
 
-            feat_thres[fi][current_root][0]=forest[fi][current_root][utilities_matrix[fi][3]][utilities_matrix[fi][2]];
-            printf("the numeric threshold is %f\n",feat_thres[fi][current_root][0]);
-            feat_thres[fi][current_root][1]=utilities_matrix[fi][3];
-            printAr1(utilities_matrix[fi],6);
+            // feat_thres[fi][current_root][0]=forest[fi][current_root][utilities_matrix[fi][3]][utilities_matrix[fi][2]];
+            // printf("the numeric threshold is %f\n",feat_thres[fi][current_root][0]);
+            // feat_thres[fi][current_root][1]=utilities_matrix[fi][2];
+            // printAr1(utilities_matrix[fi],6);
             // printAr1(utilities_matrix[fi],6);
 
-
-            // printMatr(num_of_trees,6,utilities_matrix);
-            
-            // printMatr(num_of_trees,4,utilities_matrix);
-            // printMatrF(parent_size,tree_size,forest[fi][current_root]);
 
                 //todo get numeric threshold
             if(parent_size<minimum_leaf_size)
@@ -792,28 +785,31 @@ int main(void)
                 splitable=0;
                 printf("the number of elems is:%d\n",parent_size );
             }
-            if(current_root%2!=0 &&splitable) // if splitable 
+            if( (level)<depth &&splitable) // if splitable 
             {
+                get_best_threshold(utilities_matrix[fi], forest[fi][current_root]);
+                get_split_childsizes(utilities_matrix[fi],forest[fi][current_root]);
+                printf("left size is: %d", utilities_matrix[fi][4]);
+                printf("  right size is: %d\n", utilities_matrix[fi][5]);
+
+                feat_thres[fi][current_root][0]=forest[fi][current_root][utilities_matrix[fi][3]][utilities_matrix[fi][2]];
+                printf("the numeric threshold is %f\n",feat_thres[fi][current_root][0]);
+                feat_thres[fi][current_root][1]=utilities_matrix[fi][2];
+                printAr1(utilities_matrix[fi],6);
+
                 left_node=current_root-(int)pow(2,depth-level-1);//1,0
                 right_node=current_root+(int)pow(2,depth-level-1);//5,2
 
-                if ((level+1)<depth)
-                {
-                    if(utilities_matrix[fi][5]>minimum_leaf_size)
-                    {
-                        printf("pushed right\n");
-                        push(rt_size,utilities_matrix[fi][5]);//right node
-                        push(node_stack,right_node);//11
-                        push(level_stuck,level+1);//1+1=2
-                    }
-                    if(utilities_matrix[fi][4]>minimum_leaf_size)
-                    {   
-                        printf("pushed left\n");
-                        push(rt_size,utilities_matrix[fi][4]);//left node 32
-                        push(node_stack,left_node);//3,11
-                        push(level_stuck,level+1);//1+1=2
-                    }
-                }
+                printf("pushed right\n");
+                push(rt_size,utilities_matrix[fi][5]);//right node
+                push(node_stack,right_node);//11
+                push(level_stuck,level+1);//1+1=2
+
+                printf("pushed left\n");
+                push(rt_size,utilities_matrix[fi][4]);//left node 32
+                push(node_stack,left_node);//3,11
+                push(level_stuck,level+1);//1+1=2
+
                 if (utilities_matrix[fi][4]>0)
                 {
                     /* code */
@@ -852,10 +848,19 @@ int main(void)
                     forest[fi][right_node]=forest[fi][current_root];
                 }
             }
-
+            else
+            {
+                feat_thres[fi][current_root][2]=1.0;
+                for (int avg_counter=0;avg_counter<utilities_matrix[fi][0];avg_counter++)
+                {
+                    avgTarget=avgTarget+forest[fi][current_root][avg_counter][utilities_matrix[fi][1]-1];//target column
+                }
+                feat_thres[fi][current_root][0]=avgTarget/utilities_matrix[fi][0];
+                avgTarget=0;
+            }
         }
-
+        // printf("Feat threshold is:\n");
+        // printMatrF(no_Of_nodes,3,feat_thres[fi]);
     }
-    //printMatr(num_of_trees,6,utilities_matrix);
-
+    
 }
